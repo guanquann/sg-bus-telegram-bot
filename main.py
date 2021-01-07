@@ -109,6 +109,7 @@ def user_input(update: Update, context: CallbackContext):
             db.execute("UPDATE users SET new_description=%s, state='0' WHERE user_id=%s AND description=%s",
                        (new_name, update.message.chat_id, renaming_bus_stop[2]))
         return
+
     message = update.message.text.replace('/', '').lower()
     bot_typing(context.bot, update.message.chat_id)
 
@@ -120,8 +121,12 @@ def user_input(update: Update, context: CallbackContext):
     db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='1'", (update.message.chat_id,))
     schedule_bus_code = db.fetchone()
 
-    # state=2 means that bot is expecting a time from user to schedule a message
+    # state=2 means that bot is expecting bus numbers from user to schedule a message
     db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
+    schedule_buses = db.fetchone()
+
+    # state=3 means that bot is expecting a time from user to schedule a message
+    db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='3'", (update.message.chat_id,))
     schedule_msg_time = db.fetchone()
 
     # Deal with user's feedback
@@ -149,13 +154,59 @@ def user_input(update: Update, context: CallbackContext):
                     if bus_stop.split(' | ')[0] == message:
                         description = bus_stop.split(' | ', 3)[2]
                         break
+
+            url = "http://datamall2.mytransport.sg/ltaodataservice/BusArrivalv2?BusStopCode={}".format(message)
+            headers = {'AccountKey': LTA_TOKEN_KEY}
+            response = requests.get(url, headers=headers).json()
+            all_buses = response['Services']
+            all_bus_services = list()
+            # To get all the bus service number into a list
+            for bus in all_buses:
+                all_bus_services.append(bus['ServiceNo'])
+
+            # bus_services_data is a string consisting of bus numbers separated by commas
+            bus_services_data = ','.join(all_bus_services)
             if description:
-                update.message.reply_text(schedule_timing(message), reply_markup=ForceReply(),
-                                          parse_mode=ParseMode.HTML)
                 db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
                 user = db.fetchall()
+                # To delete any duplicates
                 if user:
                     db.execute("DELETE FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
+
+                bot_typing(context.bot, update.message.chat_id)
+
+                # Keyboard display for all the bus numbers of a bus stop
+                # Maximum number of columns per row is 3
+                keyboard, sublist = list(), list()
+                for bus_service in all_bus_services:
+                    if len(sublist) < 3:
+                        sublist.append(InlineKeyboardButton(bus_service, callback_data='bus_{}_{}'
+                                                            .format(bus_service, bus_services_data)))
+                    if len(sublist) == 3:
+                        keyboard.append(sublist)
+                        sublist = list()
+
+                # Find the remainder number of bus number in the last row
+                num_remaining = len(all_bus_services) % 3
+                # Last row will consist of 2 bus numbers and a confirm button
+                if num_remaining == 2:
+                    keyboard.append([InlineKeyboardButton(all_bus_services[-2], callback_data='bus_{}_{}'.
+                                                          format(all_bus_services[-2], bus_services_data)),
+                                     InlineKeyboardButton(all_bus_services[-1], callback_data='bus_{}_{}'.
+                                                          format(all_bus_services[-1], bus_services_data)),
+                                     InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+                # Last row will consist of 1 bus number and a confirm button
+                elif num_remaining == 1:
+                    keyboard.append([InlineKeyboardButton(all_bus_services[-1], callback_data='bus_{}_{}'.
+                                                          format(all_bus_services[-1], bus_services_data)),
+                                     InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+                # Last row will consist of no bus number but only a confirm button
+                else:
+                    keyboard.append([InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                update.message.reply_text(schedule_bus_number(message, 'None'), reply_markup=reply_markup,
+                                          parse_mode=ParseMode.HTML)
 
                 db.execute("UPDATE schedules SET bus_stop_code=%s, description=%s, state='2' WHERE user_id=%s AND "
                            "state='1'", (message, description, update.message.chat_id))
@@ -170,23 +221,40 @@ def user_input(update: Update, context: CallbackContext):
             update.message.reply_text('{} is not a valid bus stop code. Bus stop code should be 5 digits. Please try '
                                       'again!\n\nClick/Type /exit to stop scheduling message.'.format(message))
 
+    # Raise alert if user has not confirmed the bus numbers for scheduling message
+    elif schedule_buses:
+        if 'exit' in message:
+            update.message.reply_text('Quit Scheduling Message...')
+            db.execute("DELETE FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
+        else:
+            update.message.reply_text('Please select your bus timings you want to be notified on.\n\n'
+                                      'Click/Type /exit to stop scheduling message.')
+
     # Deals with time when user is scheduling message
     elif schedule_msg_time:
         # [0-9] means the character is a number from 0 to 9
         # ? means if the first number is 0 or 1, just take either, | means or operator
         time_format = re.compile("^([01]?[0-9]|2[0-3])[0-5][0-9]$")
         if re.search(time_format, message):
-            db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
+            db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='3'", (update.message.chat_id,))
             bus_stop = db.fetchone()
             bus_stop_code, description = bus_stop[1], bus_stop[2]
-            update.message.reply_text('You will receive message at {}H for <b>{} (/{})</b> now.'.
-                                      format(message, description, bus_stop_code), parse_mode=ParseMode.HTML)
+            selected_buses = ''
+            for bus in bus_stop[5:10]:
+                if bus != 'None':
+                    selected_buses += '{},'.format(bus)
+            if selected_buses == '':
+                selected_buses = 'ALL'
+            else:
+                selected_buses = selected_buses[:-1]
+            update.message.reply_text('You will receive message at {}H for <b>{} (/{})</b>.\n\nBus: <b>{}</b>'.
+                                      format(message, description, bus_stop_code, selected_buses), parse_mode=ParseMode.HTML)
             message = '{}:{}'.format(message[:2], message[-2:])
-            db.execute("UPDATE schedules SET time=%s, state='0' WHERE user_id=%s AND state='2'",
+            db.execute("UPDATE schedules SET time=%s, state='0' WHERE user_id=%s AND state='3'",
                        (message, update.message.chat_id))
         elif 'exit' in message:
             update.message.reply_text('Quit Scheduling Message...')
-            db.execute("DELETE FROM schedules WHERE user_id=%s AND state='2'", (update.message.chat_id,))
+            db.execute("DELETE FROM schedules WHERE user_id=%s AND state='3'", (update.message.chat_id,))
         else:
             update.message.reply_text(schedule_timing_failed(), parse_mode=ParseMode.HTML)
 
@@ -444,6 +512,98 @@ def buttons_functions(update: Update, context: CallbackContext):
         update.callback_query.edit_message_text("Schedule for {} removed.\n\nTo schedule a new message, click on the "
                                                 "'Schedule Message' button in /settings!".format(bus_stop))
 
+    # User chooses the bus number they want to see when they schedule message
+    elif update.callback_query.data.startswith('bus_'):
+        # Bus number that user selected mostly recently
+        bus_number = update.callback_query.data.split('_')[1]
+        # All the bus numbers that user had selected previously
+        bus_services_data = update.callback_query.data.split('_')[2]
+        # Convert all the bus numbers that user had selected previously into list
+        all_bus_services = bus_services_data.split(',')
+
+        keyboard, sublist = list(), list()
+
+        for bus_service in all_bus_services:
+            if len(sublist) < 3:
+                sublist.append(InlineKeyboardButton(bus_service, callback_data='bus_{}_{}'.format(bus_service,
+                                                                                                  bus_services_data)))
+            if len(sublist) == 3:
+                keyboard.append(sublist)
+                sublist = list()
+
+        num_rows = len(all_bus_services) % 3
+        if num_rows == 2:
+            keyboard.append([InlineKeyboardButton(all_bus_services[-2],
+                                                  callback_data='bus_{}_{}'.format(all_bus_services[-2],
+                                                                                   bus_services_data)),
+                             InlineKeyboardButton(all_bus_services[-1],
+                                                  callback_data='bus_{}_{}'.format(all_bus_services[-1],
+                                                                                   bus_services_data)),
+                             InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+        elif num_rows == 1:
+            keyboard.append([InlineKeyboardButton(all_bus_services[-1],
+                                                  callback_data='bus_{}_{}'.format(all_bus_services[-1],
+                                                                                   bus_services_data)),
+                             InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+        else:
+            keyboard.append([InlineKeyboardButton('Confirm', callback_data='confirm_bus_num')])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        message = update.effective_message.text
+        all_selected_buses = message.split(':')[-1]
+        bus_stop_code = message.strip('Bus Stop Code ')[:5]
+        # If user previously does not have any selected bus
+        if 'None' in all_selected_buses:
+            selected_bus = bus_number
+
+        # If user removes a bus and there is no selected bus now
+        elif bus_number == all_selected_buses or bus_number == all_selected_buses[1:]:
+            selected_bus = 'None'
+
+        # If user removes a bus and there are still other selected buses
+        elif bus_number in all_selected_buses.split(','):
+            buses = all_selected_buses.split(',')
+            buses.remove(bus_number)
+            selected_bus = ','.join(buses)
+
+        # If user selects a new bus number
+        else:
+            selected_bus = "{},{}".format(all_selected_buses, bus_number)
+
+        # Remove the extra comma in front if user removes the first bus he has selected
+        if selected_bus[0] == ',':
+            selected_bus = selected_bus[1:]
+        if len(selected_bus.split(',')) > 5:
+            selected_bus = selected_bus.split(',', 1)[1]
+        update.effective_message.edit_text(schedule_bus_number(bus_stop_code, selected_bus),
+                                           parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+
+    # After users confirm the bus number to be scheduled
+    elif update.callback_query.data == 'confirm_bus_num':
+        bus_stop_code = update.effective_message.text.strip('Bus Stop Code ')[:6]
+        # Convert into tuple format for inserting into database
+        selected_buses = tuple(update.effective_message.text.split(':')[1].split(","))
+        # If at least a bus is selected previously
+        if selected_buses != ('None',):
+            while len(selected_buses) != 5:
+                selected_buses += ('None',)
+
+            update.effective_message.edit_text(schedule_timing(bus_stop_code), reply_markup=None,
+                                               parse_mode=ParseMode.HTML)
+
+            db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='2'", (update.effective_message.chat_id,))
+            user = db.fetchone()
+            # Get the first 4 elements of the user
+            # Find a better way to code this... UPDATE AND ON CONFLICT not allowed
+            selected_buses = user[0:4] + ('3',) + selected_buses
+            db.execute("DELETE FROM schedules WHERE user_id=%s AND state='2'", (update.effective_message.chat_id,))
+            db.execute("INSERT INTO schedules VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT "
+                       "(user_id, bus_stop_code, time, state) DO NOTHING", selected_buses)
+        # If user did not select a bus - default option (ALL BUS SELECTED)
+        else:
+            update.effective_message.edit_text(schedule_timing(bus_stop_code), reply_markup=None,
+                                               parse_mode=ParseMode.HTML,)
+
     # User chooses to receive MRT alerts during MRT breakdowns/delays
     elif update.callback_query.data == 'accept_mrt_alerts':
         keyboard = [[InlineKeyboardButton('Yes', callback_data='accept_mrt_alerts'),
@@ -543,8 +703,10 @@ def send_scheduled_msg(context: CallbackContext):
     db.execute("SELECT * FROM schedules WHERE time=%s", (str(datetime.utcnow() + timedelta(hours=8)).split(' ')[1].
                                                          rsplit(':', 1)[0],))
     users = db.fetchall()
+
     for user in users:
-        bus_message = scheduled_bus_timing_format(user[1])
+        buses_selected_list = list(filter(lambda x: x != 'None', user[5:10]))
+        bus_message = scheduled_bus_timing_format(user[1], buses_selected_list)
         context.bot.send_message(chat_id=user[0], text=bus_message[0], reply_markup=bus_message[1],
                                  parse_mode=ParseMode.HTML)
 

@@ -81,12 +81,19 @@ def view_schedules(description, bus_stop_code, time):
            '<b>Frequency:</b> Daily'.format(description, bus_stop_code, time)
 
 
+def schedule_bus_number(bus_stop_code, bus_selected):
+    return 'Bus Stop Code <b>{}</b>\nYou can select the bus numbers that you want to receive their arrival timings.' \
+           '\n\nIf you did not select any, all bus timings will be shown on the scheduled message.\n\n' \
+           'You can select up to 5 buses per message.\n\nClick confirm after selecting your bus numbers.\n\n' \
+           'Click/Type /exit to stop scheduling message.\n\n<b>Bus Selected:{}</b>'.format(bus_stop_code, bus_selected)
+
+
 def schedule_timing(bus_stop_code):
     """
     Message that will be sent after user types in bus stop code when scheduling message
     :param bus_stop_code: Bus Stop Code of what users type in when scheduling message
     """
-    return 'Bus Stop Code <b>{}</b>.\nPlease type in the time you want your message to ' \
+    return 'Bus Stop Code <b>{}</b>\nPlease type in the time you want your message to ' \
            'be scheduled. Time should strictly follow the 24 hr format shown below.\n\n' \
            'Type <b>0630</b> to represent 6:30AM.\nType <b>1930</b> to represent 7:30PM.' \
            '\n\nClick/Type /exit to stop scheduling message.'.format(bus_stop_code)

@@ -127,4 +127,4 @@ To stop a bot, send /stop. Your past messages with the bot will not be removed u
 - V1.0 : 01/01/2021 : Release of Singapore Bus Telegram Bot.
 
 ## License:
-This project is under the [MIT](https://github.com/spartan737/sg-bus-telegram-bot/blob/main/LICENSE) license.
+This project is under the [MIT](https://github.com/spartan737/sg-bus-telegram-bot/blob/master/LICENSE) license.

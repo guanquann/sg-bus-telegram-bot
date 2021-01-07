@@ -201,24 +201,25 @@ def short_bus_timing_message(bus_stop_code):
     return bus_message, reply_markup, bus_stop_name, bus_stop_code
 
 
-def scheduled_bus_timing_format(bus_stop_code):
+def scheduled_bus_timing_format(bus_stop_code, bus_selected_list):
     bus_timings, bus_stop_name, bus_stop_code = get_bus_timing(bus_stop_code)
 
     bus_message = '<b><u>This is a Scheduled Message</u></b>\n' \
                   '<b>Bus Stop: </b>{}\n<b>Bus Stop Code: </b>/{}\n\n'.format(bus_stop_name, bus_stop_code)
     bus_timings.sort(key=lambda x: x[1])
-
     for bus in bus_timings:
         # Bus Number
-        bus_message += 'Bus /{}\n'.format(bus[0])
-        if type(bus[1][0]) == str:
-            timing = bus[1][0]
-        elif int(bus[1][0]) > 1:
-            timing = '{}mins'.format(bus[1][0])
-        else:
-            timing = 'Arriving'
-        bus_message += '  -{}{}{}\n\n'.format(timing, bus[1][1].replace('SEA', '🟢').replace('SDA', '🟡').
-                                              replace('SEA', '🔴'), bus[1][2].replace('WAB', '♿'))
+        # To make sure bus is inside the selected list or nothing is being selected(default option-ALL BUS)
+        if not bus_selected_list or bus[0] in bus_selected_list:
+            bus_message += 'Bus /{}\n'.format(bus[0])
+            if type(bus[1][0]) == str:
+                timing = bus[1][0]
+            elif int(bus[1][0]) > 1:
+                timing = '{}mins'.format(bus[1][0])
+            else:
+                timing = 'Arriving'
+            bus_message += '  -{}{}{}\n\n'.format(timing, bus[1][1].replace('SEA', '🟢').replace('SDA', '🟡').
+                                                  replace('SEA', '🔴'), bus[1][2].replace('WAB', '♿'))
 
     bus_message += '🟢: Seats Available\n🟡: Standing Available\n🔴: Limited Seating\n♿: Wheel-chair Accessible\n\n' \
                    '<b>Format:</b> General\n<b>Updated:</b> {}'.format(str(datetime.utcnow() + timedelta(hours=8))
