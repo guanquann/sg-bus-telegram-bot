@@ -241,14 +241,17 @@ def user_input(update: Update, context: CallbackContext):
             bus_stop_code, description = bus_stop[1], bus_stop[2]
             selected_buses = ''
             for bus in bus_stop[5:10]:
-                if bus != 'None':
+                # To check that it is not None or 'None'
+                if type(bus) == str and bus != "None":
                     selected_buses += '{},'.format(bus)
+            # If not bus is selected, all buses will be shown
             if selected_buses == '':
                 selected_buses = 'ALL'
             else:
+                # Remove the last comma
                 selected_buses = selected_buses[:-1]
-            update.message.reply_text('You will receive message at {}H for <b>{} (/{})</b>.\n\nBus: <b>{}</b>'.
-                                      format(message, description, bus_stop_code, selected_buses), parse_mode=ParseMode.HTML)
+            update.message.reply_text(schedule_confirm(message, description, bus_stop_code, selected_buses),
+                                      parse_mode=ParseMode.HTML)
             message = '{}:{}'.format(message[:2], message[-2:])
             db.execute("UPDATE schedules SET time=%s, state='0' WHERE user_id=%s AND state='3'",
                        (message, update.message.chat_id))
@@ -487,16 +490,22 @@ def buttons_functions(update: Update, context: CallbackContext):
     elif update.callback_query.data == 'view_schedules':
         db.execute("SELECT * FROM schedules WHERE user_id=%s AND state='0'", (update.effective_message.chat_id,))
         schedules = db.fetchall()
+        # TODO: show buses that are being scheduled
         if schedules:
             update.effective_message.reply_text('View Scheduled Messages')
         else:
             update.effective_message.reply_text('No Scheduled Messages.\n\nTo schedule a message, click on the '
                                                 '"Schedule Message" button.')
         for index, schedule in enumerate(schedules):
+            # To check that buses_selected is not None or 'None'
+            buses_selected = ','.join("".join(str(elem)) for elem in schedule[5:10] if type(elem) == str and
+                                      elem != 'None')
+            if buses_selected == '':
+                buses_selected = 'ALL'
             keyboard = [[InlineKeyboardButton('Remove', callback_data='remove_scheduled_message-{}'
                                               .format(schedule[3]))]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            update.effective_message.reply_text(view_schedules(schedule[2], schedule[1], schedule[3]),
+            update.effective_message.reply_text(view_schedules(schedule[2], schedule[1], buses_selected, schedule[3]),
                                                 reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
     # To allow users to delete their schedules
@@ -599,10 +608,13 @@ def buttons_functions(update: Update, context: CallbackContext):
             db.execute("DELETE FROM schedules WHERE user_id=%s AND state='2'", (update.effective_message.chat_id,))
             db.execute("INSERT INTO schedules VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT "
                        "(user_id, bus_stop_code, time, state) DO NOTHING", selected_buses)
+
         # If user did not select a bus - default option (ALL BUS SELECTED)
         else:
             update.effective_message.edit_text(schedule_timing(bus_stop_code), reply_markup=None,
                                                parse_mode=ParseMode.HTML,)
+            db.execute("UPDATE schedules SET state='3' WHERE user_id=%s AND state='2'",
+                       (update.effective_message.chat_id, ))
 
     # User chooses to receive MRT alerts during MRT breakdowns/delays
     elif update.callback_query.data == 'accept_mrt_alerts':
@@ -705,7 +717,7 @@ def send_scheduled_msg(context: CallbackContext):
     users = db.fetchall()
 
     for user in users:
-        buses_selected_list = list(filter(lambda x: x != 'None', user[5:10]))
+        buses_selected_list = list(filter(lambda x: type(x) == str and x != 'None', user[5:10]))
         bus_message = scheduled_bus_timing_format(user[1], buses_selected_list)
         context.bot.send_message(chat_id=user[0], text=bus_message[0], reply_markup=bus_message[1],
                                  parse_mode=ParseMode.HTML)
@@ -794,7 +806,7 @@ def main():
     job.run_repeating(send_scheduled_msg, interval=60)
     job.run_repeating(update_mrt_alert, interval=620)
     job.run_daily(update_bus_data,
-                  time=time(hour=23, minute=00, second=00, tzinfo=pytz.timezone('Asia/Singapore')),
+                  time=time(hour=21, minute=00, second=00, tzinfo=pytz.timezone('Asia/Singapore')),
                   days=(0, 1, 2, 3, 4, 5, 6))
 
     if os.environ.get('DATABASE_URL'):

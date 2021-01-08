@@ -206,11 +206,12 @@ def scheduled_bus_timing_format(bus_stop_code, bus_selected_list):
 
     bus_message = '<b><u>This is a Scheduled Message</u></b>\n' \
                   '<b>Bus Stop: </b>{}\n<b>Bus Stop Code: </b>/{}\n\n'.format(bus_stop_name, bus_stop_code)
+
     bus_timings.sort(key=lambda x: x[1])
     for bus in bus_timings:
         # Bus Number
         # To make sure bus is inside the selected list or nothing is being selected(default option-ALL BUS)
-        if not bus_selected_list or bus[0] in bus_selected_list:
+        if bus_selected_list == [] or bus[0] in bus_selected_list:
             bus_message += 'Bus /{}\n'.format(bus[0])
             if type(bus[1][0]) == str:
                 timing = bus[1][0]

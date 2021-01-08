@@ -73,6 +73,7 @@ You can view your favourite bus stops by sending /favourites
 ## Add favourites
 To add a bus stop to your favourites, sending /add_favourites, followed by your bus stop code (e.g. /add_favourites 14141). 
 Alternatively, you can type in your bus stop code and click on the 'Add to Add to Favourites ❤' KeyBoard Button.
+For convenience, you can rename your favourite bus stops. No more remembering weird and long bus stop names.
 
 ![Viewing favourite bus stops](src/favourites.jpg)
 
@@ -93,7 +94,9 @@ Send /settings to schedule message and opt in/out of MRT service alerts.
 ![Settings](src/settings.jpg)
 
 To schedule a message to receive the bus timings at a specific time daily, click on the 
-'Schedule Message' button. Next, send a 5 digit bus stop code. When prompted to key in a time, type in a time that 
+'Schedule Message' button. Next, send a 5 digit bus stop code. Select the buses that you want their timings to be sent 
+to you. If you click 'Confirm' without selecting any bus stops, by default, all bus timings will be sent. 
+You can select up to 5 buses in one scheduled message. When prompted to key in a time, type in a time that 
 follows the 24 hr format (e.g. 0630 to represent 6:30AM) and submit. Do note that when you are scheduling a message, 
 you have to complete the entire process (enter bus stop code and timing). You will not be allowed to check bus timings 
 while scheduling message. To stop, send /exit. 

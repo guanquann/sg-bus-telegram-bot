@@ -73,15 +73,20 @@ def instructions_add_fav():
            'and click on the "Add to Favourites ❤" KeyBoard Button!'
 
 
-def view_schedules(description, bus_stop_code, time):
+def view_schedules(description, bus_stop_code, bus_selected, time):
     """
     Message that will be sent when user wants to view their scheduled messages
+
     """
-    return '<b>Bus Stop: </b>{}\n<b>Bus Stop Code: </b>/{}\n<b>Time:</b> {}H\n' \
-           '<b>Frequency:</b> Daily'.format(description, bus_stop_code, time)
+    return '<b>Bus Stop: </b>{}\n<b>Bus Stop Code: </b>/{}\n<b>Buses: </b>{}<b>\nTime:</b> {}H\n' \
+           '<b>Frequency:</b> Daily'.format(description, bus_stop_code, bus_selected, time)
 
 
 def schedule_bus_number(bus_stop_code, bus_selected):
+    """
+    Message that will be sent when user wants to choose bus for their scheduled messahes
+    :return:
+    """
     return 'Bus Stop Code <b>{}</b>\nYou can select the bus numbers that you want to receive their arrival timings.' \
            '\n\nIf you did not select any, all bus timings will be shown on the scheduled message.\n\n' \
            'You can select up to 5 buses per message.\n\nClick confirm after selecting your bus numbers.\n\n' \
@@ -97,6 +102,20 @@ def schedule_timing(bus_stop_code):
            'be scheduled. Time should strictly follow the 24 hr format shown below.\n\n' \
            'Type <b>0630</b> to represent 6:30AM.\nType <b>1930</b> to represent 7:30PM.' \
            '\n\nClick/Type /exit to stop scheduling message.'.format(bus_stop_code)
+
+
+def schedule_confirm(message, description, bus_stop_code, selected_buses):
+    """
+    Message that will be sent to user once they confirm their schedule
+    :param message: Time
+    :param description: Bus Stop Name
+    :param bus_stop_code: Bus Stop Code
+    :param selected_buses: Bus selected for scheduling message
+    :return:
+    """
+    return 'You will receive message at {}H for <b>{} (/{})</b>.\n\nBus: <b>{}</b>\n\n' \
+           'You can view all your schedules at /settings and clicking the "View Scheduled Message" button'.\
+        format(message, description, bus_stop_code, selected_buses)
 
 
 def schedule_timing_failed():
