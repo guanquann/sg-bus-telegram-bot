@@ -108,6 +108,10 @@ clicking on the 'Remove' button.
 
 ![View Scheduled Message](src/viewing_scheduled_msg.jpg)
 
+An example of a scheduled message sent to user, who selects the buses that he wants the timings to be sent, is shown below.
+
+![Example Of Sent Scheduled Message](src/example_of_sent_scheduled_msg.jpg)
+
 You can also choose whether to automatically receive MRT alert messages in the event of MRT breakdowns/delays. 
 The default option is 'Yes'.
 
