@@ -101,12 +101,12 @@ follows the 24 hr format (e.g. 0630 to represent 6:30AM) and submit. Do note tha
 you have to complete the entire process (enter bus stop code and timing). You will not be allowed to check bus timings 
 while scheduling message. To stop, send /exit. 
 
-![Scheduling Message](src/scheduling_message.jpg)
+![Scheduling Message](src/scheduling_bus_message.jpg)
 
 To view all your scheduled messages, click on the 'View Scheduled Messages' button. You can remove a schedule by 
 clicking on the 'Remove' button. 
 
-![View Scheduled Message](src/viewing_scheduled_msg.jpg)
+![View Scheduled Message](src/viewing_scheduled_msg_with_bus.jpg)
 
 An example of a scheduled message sent to user, who selects the buses that he wants the timings to be sent, is shown below.
 
